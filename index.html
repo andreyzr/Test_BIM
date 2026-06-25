@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Аттестация · Регламент BIM-проектирования</title>
+<style>
+  :root{
+    --paper:#0e1a2b;
+    --paper-light:#142435;
+    --line:#2e4a66;
+    --line-bright:#4a7aa3;
+    --ink:#dce8f2;
+    --ink-dim:#7d96ab;
+    --accent:#ff7a3d;
+    --ok:#5fd896;
+    --bad:#ff5d5d;
+    --mono: 'Courier New', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:28px 28px;
+    background-position:-1px -1px;
+    color:var(--ink);
+    font-family:var(--mono);
+    min-height:100vh;
+    padding:24px 16px 60px;
+  }
+  .sheet{
+    max-width:720px;
+    margin:0 auto;
+    background:var(--paper-light);
+    border:1px solid var(--line-bright);
+    box-shadow:0 0 0 1px rgba(74,122,163,0.15), 0 20px 60px rgba(0,0,0,0.4);
+    position:relative;
+  }
+  .sheet::before{
+    content:'';
+    position:absolute; inset:8px;
+    border:1px solid var(--line);
+    pointer-events:none;
+  }
+  .titleblock{
+    border-bottom:1px solid var(--line-bright);
+    padding:18px 24px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+  }
+  .titleblock .doc{
+    font-size:11px;
+    letter-spacing:.12em;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+  }
+  .titleblock h1{
+    margin:4px 0 0;
+    font-size:19px;
+    font-weight:700;
+    color:var(--ink);
+    letter-spacing:.01em;
+  }
+  .stamp{
+    font-size:10px;
+    color:var(--accent);
+    border:1px solid var(--accent);
+    padding:4px 8px;
+    white-space:nowrap;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .body{padding:24px;}
+
+  /* INTRO */
+  .intro p{
+    color:var(--ink-dim);
+    font-size:13px;
+    line-height:1.6;
+    margin:0 0 14px;
+  }
+  .intro .lead{
+    color:var(--ink);
+    font-size:14px;
+  }
+  .spec-row{
+    display:flex;
+    gap:24px;
+    margin:20px 0;
+    padding:14px 0;
+    border-top:1px dashed var(--line);
+    border-bottom:1px dashed var(--line);
+  }
+  .spec-item .num{
+    font-size:22px;
+    color:var(--accent);
+    font-weight:700;
+    line-height:1;
+  }
+  .spec-item .lbl{
+    font-size:10px;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-top:4px;
+  }
+  button{
+    font-family:var(--mono);
+    cursor:pointer;
+  }
+  .btn{
+    background:var(--accent);
+    color:#1a0f08;
+    border:none;
+    padding:12px 22px;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    transition:filter .15s, transform .1s;
+  }
+  .btn:hover{filter:brightness(1.1);}
+  .btn:active{transform:translateY(1px);}
+  .btn.secondary{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line-bright);
+  }
+  .btn.secondary:hover{border-color:var(--accent); color:var(--accent);}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  /* QUIZ */
+  .progress-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+    font-size:11px;
+    color:var(--ink-dim);
+    letter-spacing:.05em;
+  }
+  .progress-track{
+    flex:1;
+    height:6px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    margin:0 14px;
+    position:relative;
+    overflow:hidden;
+  }
+  .progress-fill{
+    position:absolute; top:0; left:0; height:100%;
+    background:var(--accent);
+    transition:width .3s ease;
+  }
+  .qcard{
+    border:1px solid var(--line);
+    padding:18px;
+    margin-bottom:16px;
+    background:rgba(255,255,255,0.015);
+  }
+  .qcard .qnum{
+    display:inline-block;
+    color:var(--accent);
+    font-size:11px;
+    letter-spacing:.1em;
+    margin-bottom:8px;
+  }
+  .qcard .qtext{
+    font-size:15px;
+    line-height:1.5;
+    color:var(--ink);
+    margin-bottom:16px;
+  }
+  .opt{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    border:1px solid var(--line);
+    font-size:13px;
+    line-height:1.4;
+    cursor:pointer;
+    transition:border-color .12s, background .12s;
+    color:var(--ink);
+  }
+  .opt:hover{border-color:var(--line-bright); background:rgba(74,122,163,0.08);}
+  .opt .marker{
+    flex:0 0 18px;
+    height:18px;
+    border:1px solid var(--line-bright);
+    border-radius:50%;
+    position:relative;
+    margin-top:1px;
+  }
+  .opt.selected{border-color:var(--accent); background:rgba(255,122,61,0.08);}
+  .opt.selected .marker{border-color:var(--accent);}
+  .opt.selected .marker::after{
+    content:'';
+    position:absolute; inset:3px;
+    background:var(--accent);
+    border-radius:50%;
+  }
+  .opt.correct{border-color:var(--ok); background:rgba(95,216,150,0.08);}
+  .opt.correct .marker{border-color:var(--ok);}
+  .opt.correct .marker::after{
+    content:'';
+    position:absolute; inset:3px;
+    background:var(--ok);
+    border-radius:50%;
+  }
+  .opt.incorrect{border-color:var(--bad); background:rgba(255,93,93,0.08);}
+  .opt.incorrect .marker{border-color:var(--bad);}
+  .opt.incorrect .marker::after{
+    content:'';
+    position:absolute; inset:3px;
+    background:var(--bad);
+    border-radius:50%;
+  }
+  .opt.disabled{cursor:default;}
+
+  .nav-row{
+    display:flex;
+    justify-content:space-between;
+    margin-top:8px;
+  }
+
+  /* RESULTS */
+  .result-head{
+    text-align:center;
+    padding:20px 0 8px;
+  }
+  .result-score{
+    font-size:54px;
+    font-weight:700;
+    line-height:1;
+    color:var(--accent);
+  }
+  .result-score span{font-size:22px; color:var(--ink-dim);}
+  .result-verdict{
+    margin-top:10px;
+    font-size:13px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+  }
+  .verdict-pass{color:var(--ok);}
+  .verdict-fail{color:var(--bad);}
+  .review-item{
+    border-top:1px solid var(--line);
+    padding:14px 0;
+  }
+  .review-item .rq{
+    font-size:13px;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+  .review-item .ra{
+    font-size:12px;
+    line-height:1.5;
+    margin-bottom:4px;
+    padding-left:14px;
+    border-left:2px solid var(--line);
+  }
+  .review-item .ra.wrong{border-left-color:var(--bad); color:var(--bad);}
+  .review-item .ra.right{border-left-color:var(--ok); color:var(--ok);}
+  .review-toggle{
+    color:var(--ink-dim);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    cursor:pointer;
+    margin-top:18px;
+    text-align:center;
+    border-top:1px dashed var(--line);
+    padding-top:14px;
+  }
+  .review-toggle:hover{color:var(--accent);}
+  .hidden{display:none !important;}
+
+  .footnote{
+    margin-top:24px;
+    font-size:10px;
+    color:var(--ink-dim);
+    text-align:center;
+    letter-spacing:.04em;
+  }
+
+  @media (max-width:480px){
+    .titleblock{flex-direction:column;}
+    .result-score{font-size:42px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="titleblock">
+    <div>
+      <div class="doc">Live Sound · Отдел BIM-проектирования</div>
+      <h1 id="docTitle">Аттестация по регламенту</h1>
+    </div>
+    <div class="stamp" id="stamp">черновик</div>
+  </div>
+  <div class="body" id="app"></div>
+</div>
+
+<script>
+let BANK = [];
+const TOTAL_Q = 15;
+const PASS_RATIO = 0.7;
+
+let state = {
+  questions: [],
+  current: 0,
+  answers: []   // {selected, correct, isRight}
+};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function pickQuestions(){
+  const picked = shuffle(BANK).slice(0, TOTAL_Q);
+  // shuffle options within each question, remap correct index
+  return picked.map(q => {
+    const order = shuffle(q.options.map((opt, idx) => ({opt, idx})));
+    const newOptions = order.map(o => o.opt);
+    const newCorrect = order.findIndex(o => o.idx === q.correct);
+    return { q: q.q, options: newOptions, correct: newCorrect };
+  });
+}
+
+function setStamp(text, mode){
+  const s = document.getElementById('stamp');
+  s.textContent = text;
+  s.style.color = mode === 'pass' ? 'var(--ok)' : mode === 'fail' ? 'var(--bad)' : 'var(--accent)';
+  s.style.borderColor = s.style.color;
+}
+
+function renderIntro(){
+  document.getElementById('docTitle').textContent = 'Аттестация по регламенту';
+  setStamp('черновик', 'draft');
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="intro">
+      <p class="lead">Проверка знания регламента BIM-проектирования: настройка Revit, работа с семействами, оформление видов, плагины (МКЖ, поиск кратчайшего пути, экспорт моделей).</p>
+      <p>Банк содержит ${BANK.length} вопросов. Каждая попытка — новая случайная выборка из ${TOTAL_Q} вопросов в случайном порядке.</p>
+    </div>
+    <div class="spec-row">
+      <div class="spec-item"><div class="num">${TOTAL_Q}</div><div class="lbl">вопросов</div></div>
+      <div class="spec-item"><div class="num">${Math.round(PASS_RATIO*100)}%</div><div class="lbl">порог прохождения</div></div>
+      <div class="spec-item"><div class="num">∞</div><div class="lbl">попыток</div></div>
+    </div>
+    <button class="btn" id="startBtn">Начать тест</button>
+  `;
+  document.getElementById('startBtn').onclick = startQuiz;
+}
+
+function startQuiz(){
+  state.questions = pickQuestions();
+  state.current = 0;
+  state.answers = new Array(state.questions.length).fill(null);
+  setStamp('в процессе', 'progress');
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const app = document.getElementById('app');
+  const idx = state.current;
+  const q = state.questions[idx];
+  const answer = state.answers[idx];
+  const pct = Math.round((idx)/state.questions.length*100);
+
+  app.innerHTML = `
+    <div class="progress-row">
+      <span>${idx+1} / ${state.questions.length}</span>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <span>тест</span>
+    </div>
+    <div class="qcard">
+      <div class="qnum">ВОПРОС № ${String(idx+1).padStart(2,'0')}</div>
+      <div class="qtext">${q.q}</div>
+      <div id="opts"></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn secondary" id="prevBtn" ${idx===0?'disabled':''}>← Назад</button>
+      <button class="btn" id="nextBtn" disabled>${idx===state.questions.length-1?'Завершить тест':'Далее →'}</button>
+    </div>
+  `;
+
+  const optsEl = document.getElementById('opts');
+  q.options.forEach((opt, i) => {
+    const div = document.createElement('div');
+    div.className = 'opt';
+    div.innerHTML = `<div class="marker"></div><div>${opt}</div>`;
+    if(answer !== null){
+      div.classList.add('disabled');
+      if(i === q.correct) div.classList.add('correct');
+      else if(i === answer.selected) div.classList.add('incorrect');
+    } else {
+      div.onclick = () => selectAnswer(i);
+    }
+    optsEl.appendChild(div);
+  });
+
+  if(answer !== null){
+    document.getElementById('nextBtn').disabled = false;
+  }
+
+  document.getElementById('prevBtn').onclick = () => { state.current--; renderQuestion(); };
+  document.getElementById('nextBtn').onclick = () => {
+    if(idx === state.questions.length - 1){
+      renderResults();
+    } else {
+      state.current++;
+      renderQuestion();
+    }
+  };
+}
+
+function selectAnswer(i){
+  const idx = state.current;
+  const q = state.questions[idx];
+  state.answers[idx] = { selected: i, correct: q.correct, isRight: i === q.correct };
+  renderQuestion();
+}
+
+function renderResults(){
+  const correctCount = state.answers.filter(a => a && a.isRight).length;
+  const total = state.questions.length;
+  const ratio = correctCount / total;
+  const passed = ratio >= PASS_RATIO;
+
+  document.getElementById('docTitle').textContent = 'Результат аттестации';
+  setStamp(passed ? 'пройдено' : 'не пройдено', passed ? 'pass' : 'fail');
+
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="result-head">
+      <div class="result-score">${correctCount}<span>/${total}</span></div>
+      <div class="result-verdict ${passed?'verdict-pass':'verdict-fail'}">${passed ? 'Регламент усвоен' : 'Требуется повторное изучение'}</div>
+    </div>
+    <div class="spec-row">
+      <div class="spec-item"><div class="num">${Math.round(ratio*100)}%</div><div class="lbl">верных ответов</div></div>
+      <div class="spec-item"><div class="num">${total-correctCount}</div><div class="lbl">ошибок</div></div>
+      <div class="spec-item"><div class="num">${Math.round(PASS_RATIO*100)}%</div><div class="lbl">порог</div></div>
+    </div>
+    <button class="btn" id="retryBtn">Пройти ещё раз (новые вопросы)</button>
+    <div class="review-toggle" id="reviewToggle">Показать разбор ответов ▾</div>
+    <div id="reviewBlock" class="hidden"></div>
+    <div class="footnote">Live Sound · отдел BIM-проектирования · банк из ${BANK.length} вопросов</div>
+  `;
+
+  document.getElementById('retryBtn').onclick = startQuiz;
+  document.getElementById('reviewToggle').onclick = toggleReview;
+}
+
+function toggleReview(){
+  const block = document.getElementById('reviewBlock');
+  const toggle = document.getElementById('reviewToggle');
+  const isHidden = block.classList.contains('hidden');
+  if(isHidden){
+    block.innerHTML = state.questions.map((q, i) => {
+      const a = state.answers[i];
+      const wrongLine = a.isRight ? '' : `<div class="ra wrong">Ваш ответ: ${q.options[a.selected]}</div>`;
+      return `
+        <div class="review-item">
+          <div class="rq">${i+1}. ${q.q}</div>
+          ${wrongLine}
+          <div class="ra right">Правильный ответ: ${q.options[q.correct]}</div>
+        </div>
+      `;
+    }).join('');
+    block.classList.remove('hidden');
+    toggle.textContent = 'Скрыть разбор ответов ▴';
+  } else {
+    block.classList.add('hidden');
+    toggle.textContent = 'Показать разбор ответов ▾';
+  }
+}
+
+function renderLoadError(err){
+  const app = document.getElementById('app');
+  setStamp('ошибка', 'fail');
+  app.innerHTML = `
+    <div class="intro">
+      <p class="lead" style="color:var(--bad)">Не удалось загрузить файл questions.json.</p>
+      <p>Убедитесь, что файл <b>questions.json</b> лежит в той же папке, что и этот HTML-файл (рядом, не в подпапке), и что вы открываете страницу через сервер, а не двойным щелчком по файлу — некоторые браузеры блокируют локальную загрузку JSON через file://.</p>
+      <p>Если открываете файл локально (file://), запустите простой локальный сервер в этой папке, например командой <code>python -m http.server</code>, и откройте страницу по адресу http://localhost:8000/test.html</p>
+    </div>
+  `;
+  console.error(err);
+}
+
+fetch('questions.json')
+  .then(res => {
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(data => {
+    BANK = data;
+    renderIntro();
+  })
+  .catch(renderLoadError);
+</script>
+
+</body>
+</html>
