@@ -157,6 +157,43 @@
     background:var(--accent);
     transition:width .3s ease;
   }
+  .timer-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .timer-track{
+    flex:1;
+    height:8px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  .timer-fill{
+    position:absolute; top:0; left:0; height:100%;
+    background:var(--ok);
+    transition:width 1s linear, background-color .3s;
+  }
+  .timer-fill.warn{background:var(--accent);}
+  .timer-fill.danger{background:var(--bad);}
+  .timer-num{
+    font-size:13px;
+    font-weight:700;
+    min-width:34px;
+    text-align:right;
+    color:var(--ink-dim);
+  }
+  .timer-num.warn{color:var(--accent);}
+  .timer-num.danger{color:var(--bad);}
+  .timeout-note{
+    font-size:11px;
+    color:var(--bad);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    margin-bottom:10px;
+  }
   .qcard{
     border:1px solid var(--line);
     padding:18px;
@@ -313,11 +350,15 @@
 let BANK = [];
 const TOTAL_Q = 15;
 const PASS_RATIO = 0.7;
+const TIME_PER_Q = 45; // секунд на вопрос
+
+let timerInterval = null;
 
 let state = {
   questions: [],
   current: 0,
-  answers: []   // {selected, correct, isRight}
+  answers: [],   // {selected, correct, isRight, timedOut}
+  timeLeft: []   // секунд осталось на каждый вопрос (для возврата назад)
 };
 
 function shuffle(arr){
@@ -358,9 +399,10 @@ function renderIntro(){
     </div>
     <div class="spec-row">
       <div class="spec-item"><div class="num">${TOTAL_Q}</div><div class="lbl">вопросов</div></div>
+      <div class="spec-item"><div class="num">${TIME_PER_Q}с</div><div class="lbl">на вопрос</div></div>
       <div class="spec-item"><div class="num">${Math.round(PASS_RATIO*100)}%</div><div class="lbl">порог прохождения</div></div>
-      <div class="spec-item"><div class="num">∞</div><div class="lbl">попыток</div></div>
     </div>
+    <p style="color:var(--ink-dim); font-size:12px;">⏱ На каждый вопрос — ${TIME_PER_Q} секунд. Не успели выбрать ответ — вопрос засчитывается как проваленный.</p>
     <button class="btn" id="startBtn">Начать тест</button>
   `;
   document.getElementById('startBtn').onclick = startQuiz;
@@ -370,11 +412,20 @@ function startQuiz(){
   state.questions = pickQuestions();
   state.current = 0;
   state.answers = new Array(state.questions.length).fill(null);
+  state.timeLeft = new Array(state.questions.length).fill(TIME_PER_Q);
   setStamp('в процессе', 'progress');
   renderQuestion();
 }
 
+function stopTimer(){
+  if(timerInterval){
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
 function renderQuestion(){
+  stopTimer();
   const app = document.getElementById('app');
   const idx = state.current;
   const q = state.questions[idx];
@@ -387,6 +438,11 @@ function renderQuestion(){
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       <span>тест</span>
     </div>
+    <div class="timer-row">
+      <span class="timer-num" id="timerNum">${state.timeLeft[idx]}с</span>
+      <div class="timer-track"><div class="timer-fill" id="timerFill" style="width:${Math.round(state.timeLeft[idx]/TIME_PER_Q*100)}%"></div></div>
+    </div>
+    ${answer && answer.timedOut ? '<div class="timeout-note">⏱ Время истекло — вопрос провален</div>' : ''}
     <div class="qcard">
       <div class="qnum">ВОПРОС № ${String(idx+1).padStart(2,'0')}</div>
       <div class="qtext">${q.q}</div>
@@ -406,7 +462,7 @@ function renderQuestion(){
     if(answer !== null){
       div.classList.add('disabled');
       if(i === q.correct) div.classList.add('correct');
-      else if(i === answer.selected) div.classList.add('incorrect');
+      else if(answer.selected !== null && i === answer.selected) div.classList.add('incorrect');
     } else {
       div.onclick = () => selectAnswer(i);
     }
@@ -415,10 +471,13 @@ function renderQuestion(){
 
   if(answer !== null){
     document.getElementById('nextBtn').disabled = false;
+  } else {
+    startTimer(idx);
   }
 
-  document.getElementById('prevBtn').onclick = () => { state.current--; renderQuestion(); };
+  document.getElementById('prevBtn').onclick = () => { stopTimer(); state.current--; renderQuestion(); };
   document.getElementById('nextBtn').onclick = () => {
+    stopTimer();
     if(idx === state.questions.length - 1){
       renderResults();
     } else {
@@ -428,14 +487,56 @@ function renderQuestion(){
   };
 }
 
+function startTimer(idx){
+  updateTimerUI(idx);
+  timerInterval = setInterval(() => {
+    state.timeLeft[idx]--;
+    if(state.timeLeft[idx] <= 0){
+      state.timeLeft[idx] = 0;
+      updateTimerUI(idx);
+      stopTimer();
+      handleTimeout(idx);
+    } else {
+      updateTimerUI(idx);
+    }
+  }, 1000);
+}
+
+function updateTimerUI(idx){
+  const numEl = document.getElementById('timerNum');
+  const fillEl = document.getElementById('timerFill');
+  if(!numEl || !fillEl) return;
+  const t = state.timeLeft[idx];
+  const pct = Math.max(0, Math.round(t/TIME_PER_Q*100));
+  numEl.textContent = t + 'с';
+  fillEl.style.width = pct + '%';
+  numEl.classList.remove('warn','danger');
+  fillEl.classList.remove('warn','danger');
+  if(t <= 10){
+    numEl.classList.add('danger');
+    fillEl.classList.add('danger');
+  } else if(t <= 20){
+    numEl.classList.add('warn');
+    fillEl.classList.add('warn');
+  }
+}
+
+function handleTimeout(idx){
+  const q = state.questions[idx];
+  state.answers[idx] = { selected: null, correct: q.correct, isRight: false, timedOut: true };
+  renderQuestion();
+}
+
 function selectAnswer(i){
+  stopTimer();
   const idx = state.current;
   const q = state.questions[idx];
-  state.answers[idx] = { selected: i, correct: q.correct, isRight: i === q.correct };
+  state.answers[idx] = { selected: i, correct: q.correct, isRight: i === q.correct, timedOut: false };
   renderQuestion();
 }
 
 function renderResults(){
+  stopTimer();
   const correctCount = state.answers.filter(a => a && a.isRight).length;
   const total = state.questions.length;
   const ratio = correctCount / total;
@@ -472,7 +573,12 @@ function toggleReview(){
   if(isHidden){
     block.innerHTML = state.questions.map((q, i) => {
       const a = state.answers[i];
-      const wrongLine = a.isRight ? '' : `<div class="ra wrong">Ваш ответ: ${q.options[a.selected]}</div>`;
+      let wrongLine = '';
+      if(a.timedOut){
+        wrongLine = `<div class="ra wrong">⏱ Время истекло, ответ не дан</div>`;
+      } else if(!a.isRight){
+        wrongLine = `<div class="ra wrong">Ваш ответ: ${q.options[a.selected]}</div>`;
+      }
       return `
         <div class="review-item">
           <div class="rq">${i+1}. ${q.q}</div>
