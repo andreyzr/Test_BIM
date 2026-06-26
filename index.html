@@ -391,12 +391,10 @@ const TOTAL_Q = 15;
 const PASS_RATIO = 0.7;
 const TIME_PER_Q = 45; // секунд на вопрос
 
-// ===== НАСТРОЙКА ОТПРАВКИ РЕЗУЛЬТАТОВ В GITHUB ISSUES =====
-// Заполни эти три значения, чтобы результаты тестов сохранялись как Issues в репозитории.
-// Подробная инструкция по получению токена — в файле SETUP.md
-const GITHUB_OWNER = 'andreyzr';        // логин/организация на GitHub
-const GITHUB_REPO  = 'Test_BIM';        // название репозитория
-const GITHUB_TOKEN = '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';                // fine-grained PAT с правом "Issues: Write" ТОЛЬКО для этого репо
+// ===== НАСТРОЙКА СОХРАНЕНИЯ РЕЗУЛЬТАТОВ В GOOGLE ТАБЛИЦУ =====
+// Вставь сюда URL веб-приложения Google Apps Script (см. SETUP.md, как его получить).
+// Без этого URL результаты не сохраняются, но тест продолжает работать.
+const SHEET_WEBAPP_URL = '';
 // ============================================================
 
 let timerInterval = null;
@@ -646,72 +644,65 @@ function formatDateTime(d){
   return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function buildIssueBody(result){
-  const durationSec = Math.round((result.finishedAt - result.startedAt)/1000);
-  const durationStr = `${Math.floor(durationSec/60)}м ${durationSec%60}с`;
-
-  let body = `### Результат прохождения теста\n\n`;
-  body += `| Параметр | Значение |\n|---|---|\n`;
-  body += `| Сотрудник | ${result.userName} |\n`;
-  body += `| Дата начала | ${formatDateTime(result.startedAt)} |\n`;
-  body += `| Дата завершения | ${formatDateTime(result.finishedAt)} |\n`;
-  body += `| Длительность | ${durationStr} |\n`;
-  body += `| Результат | ${result.correctCount} / ${result.total} (${Math.round(result.ratio*100)}%) |\n`;
-  body += `| Вердикт | ${result.passed ? '✅ Пройдено' : '❌ Не пройдено'} |\n\n`;
-  body += `---\n\n### Разбор по вопросам\n\n`;
-
-  state.questions.forEach((q, i) => {
+function buildAnswersSummary(){
+  return state.questions.map((q, i) => {
     const a = state.answers[i];
     let mark, given;
     if(a.timedOut){
-      mark = '⏱'; given = 'время истекло, ответ не дан';
+      mark = '⏱'; given = 'время истекло';
     } else if(a.isRight){
       mark = '✅'; given = q.options[a.selected];
     } else {
       mark = '❌'; given = q.options[a.selected];
     }
-    body += `**${i+1}. ${mark} ${q.q}**\n`;
-    body += `- Ответ сотрудника: ${given}\n`;
-    if(!a.isRight) body += `- Правильный ответ: ${q.options[q.correct]}\n`;
-    body += `\n`;
-  });
-
-  return body;
+    let line = `${i+1}. [${mark}] ${q.q} — Ответ: ${given}`;
+    if(!a.isRight) line += ` | Правильно: ${q.options[q.correct]}`;
+    return line;
+  }).join('\n');
 }
 
 function submitResult(result){
   const syncRow = document.getElementById('syncRow');
 
-  if(!GITHUB_TOKEN){
+  if(!SHEET_WEBAPP_URL){
     syncRow.textContent = 'Сохранение результатов не настроено (см. SETUP.md)';
     syncRow.classList.add('err');
     return;
   }
 
-  const title = `${result.passed ? '✅' : '❌'} ${result.userName} — ${result.correctCount}/${result.total} — ${formatDateTime(result.finishedAt)}`;
-  const body = buildIssueBody(result);
-  const labels = result.passed ? ['пройдено'] : ['не пройдено'];
+  const durationSec = Math.round((result.finishedAt - result.startedAt)/1000);
 
-  fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
+  const payload = {
+    userName: result.userName,
+    startedAt: formatDateTime(result.startedAt),
+    finishedAt: formatDateTime(result.finishedAt),
+    durationSec: durationSec,
+    correct: result.correctCount,
+    total: result.total,
+    percent: Math.round(result.ratio*100),
+    verdict: result.passed ? 'Пройдено' : 'Не пройдено',
+    answersSummary: buildAnswersSummary()
+  };
+
+  syncRow.textContent = 'Отправка результата…';
+  syncRow.classList.remove('err','ok');
+
+  fetch(SHEET_WEBAPP_URL, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
-      'Accept': 'application/vnd.github+json',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ title, body, labels })
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain избегает preflight-запроса CORS
+    body: JSON.stringify(payload)
   })
-  .then(res => {
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
-  .then(() => {
-    syncRow.textContent = '✓ Результат сохранён';
-    syncRow.classList.remove('err');
-    syncRow.classList.add('ok');
+  .then(res => res.json())
+  .then(data => {
+    if(data && data.status === 'ok'){
+      syncRow.textContent = '✓ Результат сохранён в таблице';
+      syncRow.classList.add('ok');
+    } else {
+      throw new Error((data && data.error) || 'unknown error');
+    }
   })
   .catch(err => {
-    syncRow.textContent = 'Не удалось сохранить результат (нет связи с GitHub)';
+    syncRow.textContent = 'Не удалось сохранить результат (нет связи с таблицей)';
     syncRow.classList.add('err');
     console.error(err);
   });
