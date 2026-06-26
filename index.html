@@ -243,22 +243,6 @@
     background:var(--accent);
     border-radius:50%;
   }
-  .opt.correct{border-color:var(--ok); background:rgba(95,216,150,0.08);}
-  .opt.correct .marker{border-color:var(--ok);}
-  .opt.correct .marker::after{
-    content:'';
-    position:absolute; inset:3px;
-    background:var(--ok);
-    border-radius:50%;
-  }
-  .opt.incorrect{border-color:var(--bad); background:rgba(255,93,93,0.08);}
-  .opt.incorrect .marker{border-color:var(--bad);}
-  .opt.incorrect .marker::after{
-    content:'';
-    position:absolute; inset:3px;
-    background:var(--bad);
-    border-radius:50%;
-  }
   .opt.disabled{cursor:default;}
 
   .nav-row{
@@ -524,8 +508,7 @@ function renderQuestion(){
     div.innerHTML = `<div class="marker"></div><div>${opt}</div>`;
     if(answer !== null){
       div.classList.add('disabled');
-      if(i === q.correct) div.classList.add('correct');
-      else if(answer.selected !== null && i === answer.selected) div.classList.add('incorrect');
+      if(answer.selected !== null && i === answer.selected) div.classList.add('selected');
     } else {
       div.onclick = () => selectAnswer(i);
     }
