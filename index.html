@@ -644,6 +644,12 @@ function formatDateTime(d){
   return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function buildAnswersSummary(){
   return state.questions.map((q, i) => {
     const a = state.answers[i];
