@@ -267,6 +267,45 @@
     margin-top:8px;
   }
 
+  /* NAME FORM */
+  .field-label{
+    font-size:11px;
+    color:var(--ink-dim);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    margin-bottom:6px;
+    display:block;
+  }
+  .text-input{
+    width:100%;
+    background:var(--paper);
+    border:1px solid var(--line-bright);
+    color:var(--ink);
+    font-family:var(--mono);
+    font-size:14px;
+    padding:10px 12px;
+    margin-bottom:16px;
+  }
+  .text-input:focus{outline:none; border-color:var(--accent);}
+  .field-error{
+    font-size:11px;
+    color:var(--bad);
+    margin:-12px 0 14px;
+    display:none;
+  }
+  .field-error.show{display:block;}
+
+  /* SYNC STATUS */
+  .sync-row{
+    margin-top:14px;
+    font-size:11px;
+    letter-spacing:.04em;
+    text-align:center;
+    color:var(--ink-dim);
+  }
+  .sync-row.ok{color:var(--ok);}
+  .sync-row.err{color:var(--bad);}
+
   /* RESULTS */
   .result-head{
     text-align:center;
@@ -352,13 +391,22 @@ const TOTAL_Q = 15;
 const PASS_RATIO = 0.7;
 const TIME_PER_Q = 45; // секунд на вопрос
 
+// ===== НАСТРОЙКА ОТПРАВКИ РЕЗУЛЬТАТОВ В GITHUB ISSUES =====
+// Заполни эти три значения, чтобы результаты тестов сохранялись как Issues в репозитории.
+// Подробная инструкция по получению токена — в файле SETUP.md
+const GITHUB_OWNER = 'andreyzr';        // логин/организация на GitHub
+const GITHUB_REPO  = 'Test_BIM';        // название репозитория
+const GITHUB_TOKEN = '';                // fine-grained PAT с правом "Issues: Write" ТОЛЬКО для этого репо
+// ============================================================
+
 let timerInterval = null;
 
 let state = {
   questions: [],
   current: 0,
   answers: [],   // {selected, correct, isRight, timedOut}
-  timeLeft: []   // секунд осталось на каждый вопрос (для возврата назад)
+  timeLeft: [],  // секунд осталось на каждый вопрос (для возврата назад)
+  userName: ''
 };
 
 function shuffle(arr){
@@ -397,6 +445,9 @@ function renderIntro(){
       <p class="lead">Проверка знания регламента BIM-проектирования: настройка Revit, работа с семействами, оформление видов, плагины (МКЖ, поиск кратчайшего пути, экспорт моделей).</p>
       <p>Банк содержит ${BANK.length} вопросов. Каждая попытка — новая случайная выборка из ${TOTAL_Q} вопросов в случайном порядке.</p>
     </div>
+    <label class="field-label">Имя и фамилия</label>
+    <input type="text" id="userNameInput" class="text-input" placeholder="Например: Андрей Иванов" autocomplete="name" value="${state.userName}">
+    <div class="field-error" id="nameError">Введите имя и фамилию перед началом теста</div>
     <div class="spec-row">
       <div class="spec-item"><div class="num">${TOTAL_Q}</div><div class="lbl">вопросов</div></div>
       <div class="spec-item"><div class="num">${TIME_PER_Q}с</div><div class="lbl">на вопрос</div></div>
@@ -405,7 +456,20 @@ function renderIntro(){
     <p style="color:var(--ink-dim); font-size:12px;">⏱ На каждый вопрос — ${TIME_PER_Q} секунд. Не успели выбрать ответ — вопрос засчитывается как проваленный.</p>
     <button class="btn" id="startBtn">Начать тест</button>
   `;
-  document.getElementById('startBtn').onclick = startQuiz;
+  document.getElementById('startBtn').onclick = () => {
+    const input = document.getElementById('userNameInput');
+    const name = input.value.trim();
+    if(name.length < 2){
+      document.getElementById('nameError').classList.add('show');
+      input.focus();
+      return;
+    }
+    state.userName = name;
+    startQuiz();
+  };
+  document.getElementById('userNameInput').addEventListener('input', () => {
+    document.getElementById('nameError').classList.remove('show');
+  });
 }
 
 function startQuiz(){
@@ -413,6 +477,7 @@ function startQuiz(){
   state.current = 0;
   state.answers = new Array(state.questions.length).fill(null);
   state.timeLeft = new Array(state.questions.length).fill(TIME_PER_Q);
+  state.startedAt = new Date();
   setStamp('в процессе', 'progress');
   renderQuestion();
 }
@@ -541,6 +606,7 @@ function renderResults(){
   const total = state.questions.length;
   const ratio = correctCount / total;
   const passed = ratio >= PASS_RATIO;
+  const finishedAt = new Date();
 
   document.getElementById('docTitle').textContent = 'Результат аттестации';
   setStamp(passed ? 'пройдено' : 'не пройдено', passed ? 'pass' : 'fail');
@@ -548,6 +614,7 @@ function renderResults(){
   const app = document.getElementById('app');
   app.innerHTML = `
     <div class="result-head">
+      <div style="font-size:13px; color:var(--ink-dim); margin-bottom:6px;">${escapeHtml(state.userName)}</div>
       <div class="result-score">${correctCount}<span>/${total}</span></div>
       <div class="result-verdict ${passed?'verdict-pass':'verdict-fail'}">${passed ? 'Регламент усвоен' : 'Требуется повторное изучение'}</div>
     </div>
@@ -559,12 +626,97 @@ function renderResults(){
     <button class="btn" id="retryBtn">Пройти ещё раз (новые вопросы)</button>
     <div class="review-toggle" id="reviewToggle">Показать разбор ответов ▾</div>
     <div id="reviewBlock" class="hidden"></div>
+    <div class="sync-row" id="syncRow">Отправка результата…</div>
     <div class="footnote">Live Sound · отдел BIM-проектирования · банк из ${BANK.length} вопросов</div>
   `;
 
-  document.getElementById('retryBtn').onclick = startQuiz;
+  document.getElementById('retryBtn').onclick = () => { state.userName = state.userName; renderIntro(); };
   document.getElementById('reviewToggle').onclick = toggleReview;
+
+  submitResult({
+    userName: state.userName,
+    startedAt: state.startedAt,
+    finishedAt: finishedAt,
+    correctCount, total, ratio, passed
+  });
 }
+
+function formatDateTime(d){
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function buildIssueBody(result){
+  const durationSec = Math.round((result.finishedAt - result.startedAt)/1000);
+  const durationStr = `${Math.floor(durationSec/60)}м ${durationSec%60}с`;
+
+  let body = `### Результат прохождения теста\n\n`;
+  body += `| Параметр | Значение |\n|---|---|\n`;
+  body += `| Сотрудник | ${result.userName} |\n`;
+  body += `| Дата начала | ${formatDateTime(result.startedAt)} |\n`;
+  body += `| Дата завершения | ${formatDateTime(result.finishedAt)} |\n`;
+  body += `| Длительность | ${durationStr} |\n`;
+  body += `| Результат | ${result.correctCount} / ${result.total} (${Math.round(result.ratio*100)}%) |\n`;
+  body += `| Вердикт | ${result.passed ? '✅ Пройдено' : '❌ Не пройдено'} |\n\n`;
+  body += `---\n\n### Разбор по вопросам\n\n`;
+
+  state.questions.forEach((q, i) => {
+    const a = state.answers[i];
+    let mark, given;
+    if(a.timedOut){
+      mark = '⏱'; given = 'время истекло, ответ не дан';
+    } else if(a.isRight){
+      mark = '✅'; given = q.options[a.selected];
+    } else {
+      mark = '❌'; given = q.options[a.selected];
+    }
+    body += `**${i+1}. ${mark} ${q.q}**\n`;
+    body += `- Ответ сотрудника: ${given}\n`;
+    if(!a.isRight) body += `- Правильный ответ: ${q.options[q.correct]}\n`;
+    body += `\n`;
+  });
+
+  return body;
+}
+
+function submitResult(result){
+  const syncRow = document.getElementById('syncRow');
+
+  if(!GITHUB_TOKEN){
+    syncRow.textContent = 'Сохранение результатов не настроено (см. SETUP.md)';
+    syncRow.classList.add('err');
+    return;
+  }
+
+  const title = `${result.passed ? '✅' : '❌'} ${result.userName} — ${result.correctCount}/${result.total} — ${formatDateTime(result.finishedAt)}`;
+  const body = buildIssueBody(result);
+  const labels = result.passed ? ['пройдено'] : ['не пройдено'];
+
+  fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/issues`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ title, body, labels })
+  })
+  .then(res => {
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(() => {
+    syncRow.textContent = '✓ Результат сохранён';
+    syncRow.classList.remove('err');
+    syncRow.classList.add('ok');
+  })
+  .catch(err => {
+    syncRow.textContent = 'Не удалось сохранить результат (нет связи с GitHub)';
+    syncRow.classList.add('err');
+    console.error(err);
+  });
+}
+
 
 function toggleReview(){
   const block = document.getElementById('reviewBlock');
