@@ -687,22 +687,29 @@ function submitResult(result){
   syncRow.textContent = 'Отправка результата…';
   syncRow.classList.remove('err','ok');
 
+  // Таймаут на случай, если запрос завис без ответа
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  // mode: 'no-cors' — Google Apps Script отдаёт ответ через редирект без CORS-заголовков,
+  // из-за чего обычный fetch может зависнуть. В режиме no-cors запрос гарантированно
+  // уходит на сервер, но прочитать ответ браузер не позволяет — поэтому просто считаем
+  // отправку успешной, если fetch не выбросил ошибку сети.
   fetch(SHEET_WEBAPP_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain избегает preflight-запроса CORS
-    body: JSON.stringify(payload)
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    signal: controller.signal
   })
-  .then(res => res.json())
-  .then(data => {
-    if(data && data.status === 'ok'){
-      syncRow.textContent = '✓ Результат сохранён в таблице';
-      syncRow.classList.add('ok');
-    } else {
-      throw new Error((data && data.error) || 'unknown error');
-    }
+  .then(() => {
+    clearTimeout(timeoutId);
+    syncRow.textContent = '✓ Результат отправлен в таблицу';
+    syncRow.classList.add('ok');
   })
   .catch(err => {
-    syncRow.textContent = 'Не удалось сохранить результат (нет связи с таблицей)';
+    clearTimeout(timeoutId);
+    syncRow.textContent = 'Не удалось отправить результат (нет связи с таблицей)';
     syncRow.classList.add('err');
     console.error(err);
   });
